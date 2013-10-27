@@ -4,12 +4,16 @@ Connects to a TeamSpeak3 server and monitors it for connections. Clients can con
 
 <strong>Usage: node ts-notify-server.js</strong>
 
-The default port this server runs on is 60000. You can change this and the address the server runs on in a ts-notify-server.json.
+The default port this server runs on is 60000. You can change this and other things in the ts-notify-server.json.
 
 Example config 'ts-notify-server.json':
 <pre>
 {
+	"name": "ServerQuery login name",
+	"password": "ServerQuery login password",
 	"port": 12345,
 	"host": "example.com"
 }
 </pre>
+
+<strong>IMPORTANT:</strong> 'name' and 'password' are not optional; If you omit them or if they're wrong the server won't work.

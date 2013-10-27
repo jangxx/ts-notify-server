@@ -1,13 +1,23 @@
 var net = require('net');
 var fs = require('fs');
 
-var login_name = ''; //changeme
-var login_password = ''; //changeme
-var enable_output = true;
-
+var config = {
+	'port': 60000,
+	'host': undefined,
+	'name': undefined,
+	'password': undefined,
+	'output': true
+}
+if (fs.existsSync('ts-notify-server.json')) {
+	var configFile = fs.readFileSync('ts-notify-server.json', {encoding: 'UTF-8'});
+	var configFileConts = JSON.parse(configFile);
+	for (i in configFileConts) {
+		config[i] = configFileConts[i];
+	}
+}
 var commandQueue = [
 {cmd: 'use 1', fn: noop},
-{cmd:'login ' + login_name + ' ' + login_password, fn: noop},
+{cmd:'login ' + config.name + ' ' + config.password, fn: noop},
 {cmd:'servernotifyregister event=server', fn: noop},
 {cmd: 'clientlist -uid', fn: function(input) {
 	var clients = input.split('|');
@@ -27,17 +37,6 @@ var queuePos = 0;
 var connectedClients = {};
 var connectedSockets = {};
 var socketId = 1;
-var config = {
-	'port': 60000,
-	'host': undefined
-}
-if (fs.existsSync('ts-notify-server.json')) {
-	var configFile = fs.readFileSync('ts-notify-server.json', {encoding: 'UTF-8'});
-	var configFileConts = JSON.parse(configFile);
-	for (i in configFileConts) {
-		config[i] = configFileConts[i];
-	}
-}
 server = net.createServer();
 socket = net.connect(10011, 'localhost');
 
@@ -133,8 +132,9 @@ function pushState(status, name, uid) {
 }
 
 function output(text) {
-	if (!enable_output) return;
-	console.log(text);
+	if (!config.output) return;
+	var _d = new Date();
+	console.log("[" + _d.getDate() + "." + (_d.getMonth()+1) + "." + _d.getFullYear() + " " + _d.getHours() + ":" + _d.getMinutes() + ":" + _d.getSeconds() + "] " + text);
 }
 
 function noop() {}
