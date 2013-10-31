@@ -69,6 +69,15 @@ socket.on('data', function(data) {
 		}
 	}
 });
+socket.on('close', function() {
+	output('Connection to TeamSpeak server closed.');
+	process.exit(1);
+});
+
+setInterval(function() {
+	socket.write("version\n");
+	//output('Sent "version"');
+}, 7*60*1000)
 
 server.listen(config.port, config.host);
 server.on('connection', function(sock) {
