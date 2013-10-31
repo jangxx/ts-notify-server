@@ -39,6 +39,7 @@ var connectedSockets = {};
 var socketId = 1;
 server = net.createServer();
 socket = net.connect(10011, 'localhost');
+socket.setKeepAlive(true, 2*60*1000);
 
 socket.on('data', function(data) {
 	if (queuePos-1 > 0 && commandQueue[queuePos-1].fn != noop) {
