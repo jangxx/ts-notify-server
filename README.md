@@ -25,7 +25,8 @@ Example config 'ts-notify-server.json':
 <h2>API overview</h2>
 Note: All answers are in JSON format
 
-<i>GET</i> /init
+<i>GET</i> <strong>/init</strong>
+
 <u>Parameters</u>
 
 * <i>none</i>
@@ -34,8 +35,10 @@ Note: All answers are in JSON format
 
 * <strong>id</strong>: An id representing your client on the server. Used to identify your requests.
 
+---
 
-<i>GET</i> /getsubscriptions
+<i>GET</i> <strong>/getsubscriptions</strong>
+
 <u>Parameters</u>
 	
 * <strong>id</strong>: Your id as returned by /init
@@ -44,8 +47,10 @@ Note: All answers are in JSON format
 
 * <i>An array containing the uniqueIds you subscribed to</i>
 	
+---
 
-<i>POST</i> /subscribe
+<i>POST</i> <strong>/subscribe</strong>
+
 <u>Parameters</u>
 
 * <strong>id</strong>: Your id as returned by /init
@@ -55,8 +60,10 @@ Note: All answers are in JSON format
 
 * <i>HTTP 200 on success, an error otherwise</i>
 	
+---
 
-<i>POST</i> /unsubscribe
+<i>POST</i> <strong>/unsubscribe</strong>
+
 <u>Parameters</u>
 
 * <strong>id</strong>: Your id as returned by /init
@@ -66,8 +73,10 @@ Note: All answers are in JSON format
 
 * <i>HTTP 200 on success, an error otherwise</i>
 	
+---
 
-<i>GET</i> /event
+<i>GET</i> <strong>/event</strong>
+
 <u>Parameters</u>
 	
 * <strong>id</strong>: Your id as returned by /init
