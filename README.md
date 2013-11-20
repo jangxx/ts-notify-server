@@ -28,50 +28,50 @@ Note: All answers are in JSON format
 <i>GET</i> /init
 <u>Parameters</u>
 
-	<i>none</i>
+* <i>none</i>
 	
 <u>Returns</u>
 
-	<strong>id</strong>: An id representing your client on the server. Used to identify your requests.
+* <strong>id</strong>: An id representing your client on the server. Used to identify your requests.
 
 
 <i>GET</i> /getsubscriptions
 <u>Parameters</u>
 	
-	<strong>id</strong>: Your id as returned by /init
+* <strong>id</strong>: Your id as returned by /init
 	
 <u>Returns</u>
 
-	<i>An array containing the uniqueIds you subscribed to</i>
+* <i>An array containing the uniqueIds you subscribed to</i>
 	
 
 <i>POST</i> /subscribe
 <u>Parameters</u>
 
-	<strong>id</strong>: Your id as returned by /init
-	<strong>userid</strong>: The uniqueId you want to recieve updates about
+* <strong>id</strong>: Your id as returned by /init
+* <strong>userid</strong>: The uniqueId you want to recieve updates about
 	
 <u>Returns</u>
 
-	<i>HTTP 200 on success, an error otherwise</i>
+* <i>HTTP 200 on success, an error otherwise</i>
 	
 
 <i>POST</i> /unsubscribe
 <u>Parameters</u>
 
-	<strong>id</strong>: Your id as returned by /init
-	<strong>userid</strong>: The uniqueId you want to recieve updates about
+* <strong>id</strong>: Your id as returned by /init
+* <strong>userid</strong>: The uniqueId you want to recieve updates about
 	
 <u>Returns</u>
 
-	<i>HTTP 200 on success, an error otherwise</i>
+* <i>HTTP 200 on success, an error otherwise</i>
 	
 
 <i>GET</i> /event
 <u>Parameters</u>
 	
-	<strong>id</strong>: Your id as returned by /init
+* <strong>id</strong>: Your id as returned by /init
 	
 <u>Returns</u>
 
-	<i>Returns HTTP 200, sets the Content-Type header to 'text/event-stream'. Point your EventSource to this endpoint</i>
+* <i>Returns HTTP 200, sets the Content-Type header to 'text/event-stream'. Point your EventSource to this endpoint</i>
