@@ -1,11 +1,17 @@
 var net = require('net');
 var fs = require('fs');
+var TeamSpeakClient = require('node-teamspeak');
+var url = require('url');
+var restify = require('restify');
 
 var config = {
 	'port': 60000,
-	'host': undefined,
-	'name': undefined,
-	'password': undefined,
+	'host': 'localhost',
+	'ts_name': undefined,
+	'ts_password': undefined,
+	'ts_host': 'localhost',
+	'ts_port': 10011,
+	'ts_sid' : 1,
 	'output': true
 }
 if (fs.existsSync('ts-notify-server.json')) {
@@ -15,171 +21,181 @@ if (fs.existsSync('ts-notify-server.json')) {
 		config[i] = configFileConts[i];
 	}
 }
-var commandQueue = [
-{cmd: 'use 1', fn: noop},
-{cmd:'login ' + config.name + ' ' + config.password, fn: noop},
-{cmd:'servernotifyregister event=server', fn: noop},
-{cmd: 'clientlist -uid', fn: function(input) {
-	var clients = input.split('|');
-	clients.forEach(function(e) {
-		var _args = e.split(' ');
-		var args = {};
-		for(i in _args) {
-			var arg = _args[i].split('=');
-			args[arg[0]] = arg[1];
-		}
-		if (args.client_unique_identifier == "ServerQuery") return;
-		connectedClients[args.clid] = new Client(args.client_nickname, args.client_unique_identifier);
-	});
-}}
-];
-var queuePos = 0;
-var connectedClients = {};
-var connectedSockets = {};
-var socketId = 1;
-server = net.createServer();
-socket = net.connect(10011, 'localhost');
-socket.setKeepAlive(true, 2*60*1000);
 
-socket.on('data', function(data) {
-	if (queuePos-1 > 0 && commandQueue[queuePos-1].fn != noop) {
-		commandQueue[queuePos-1].fn(data.toString());
-		commandQueue[queuePos-1].fn = noop;
-		return;
-	}
-	if (commandQueue.length > queuePos) {
-		socket.write(commandQueue[queuePos].cmd + "\n");
-		queuePos++;
-	} else {
-		answer = parseAnswer(data.toString());
-		if (answer.args.client_unique_identifier == "ServerQuery") return;
-		switch (answer.name) {
-			case 'notifycliententerview':
-				output('Client ' + answer.args.client_nickname + ' connected [' + answer.args.client_unique_identifier + ']');
-				pushState(1, answer.args.client_nickname, answer.args.client_unique_identifier);
-				connectedClients[answer.args.clid] = new Client(answer.args.client_nickname, answer.args.client_unique_identifier);
-			break;
-			case 'notifyclientleftview':
-				var cc = connectedClients[answer.args.clid];
-				if (!cc) return;
-				pushState(2, cc.name, cc.id);
-				output('Client ' + cc.name + ' disconnected [' + cc.id + ']');
-				delete connectedClients[answer.args.clid];
-			break;
-		}
-	}
+if(!config.ts_name || !config.ts_password) {
+	output('ts_name or ts_password is missing in the configuration. Please create a "ts-notify-server.json" and fix the config there.', 'ERROR', true);
+}
+
+var connectedClients = {};
+var subClients = {};
+
+var cl = new TeamSpeakClient(config.ts_host, config.ts_port);
+cl.send('login', {client_login_name: config.ts_name, client_login_password: config.ts_password}, function(err, response) {
+	cl.send('use', {sid: config.ts_sid}, function(err, response) {
+		cl.send('clientlist', ['uid'], function(err, resp) {
+			for(i in resp) {
+				if(resp[i].client_type == 1) continue;
+				connectedClients[resp[i].clid] = new TsClient(resp[i].client_nickname, resp[i].client_unique_identifier);
+			}
+			cl.send('servernotifyregister', {'event': 'server'}, function(err, response) {});
+		});
+	});
 });
-socket.on('close', function() {
-	output('Connection to TeamSpeak server closed.');
-	process.exit(1);
+cl.on('cliententerview', function(evt) {
+	if(evt.client_type == 1) return;
+	output('Client ' + evt.client_nickname + ' connected [' + evt.client_unique_identifier + ']', 'EVENT');
+	connectedClients[evt.clid] = new TsClient(evt.client_nickname, evt.client_unique_identifier);
+	pushState(1, evt.client_nickname, evt.client_unique_identifier);
+});
+cl.on('clientleftview', function(evt) {
+	var cc = connectedClients[evt.clid];
+	if (!cc) return;
+	pushState(2, cc.name, cc.id);
+	output('Client ' + cc.name + ' disconnected [' + cc.id + ']', 'EVENT');
+	delete connectedClients[evt.clid];
 });
 
 setInterval(function() {
-	socket.write("version\n");
-	//output('Sent "version"');
-}, 7*60*1000)
-
-server.listen(config.port, config.host);
-server.on('connection', function(sock) {
-	var sC = new SocketClient(socketId, sock);
-	connectedSockets[sC.id] = sC;
-	output('Socket ' + socketId + ' connected');
-	sock.write('ok\n');
-	socketId++;
-	
-	sock.on('close', function() {
-		delete connectedSockets[sC.id];
-	});
-	sock.on('data', function(data) {
-		if (data.toString().trim() == 'quit') {
-			sock.end();
-			return;
+	cl.send('version');
+	for(i in subClients) {
+		if(subClients[i].inactiveSince + 1000*60*60*12 < (new Date()).getTime()) {
+			subClients[i].closeConnection();
+			delete subClients[i];
+			output('SubClient (' + i + ') was deleted [inactive for 12h]', 'INFO');
+			continue;
 		}
-		try {
-			var req = JSON.parse(data.toString());
-			switch(true) {
-				case checkArgs('subscribe', ['uid'], req):
-					sC.subscriptions[req.uid] = true;
-					sock.write('ok\n');
-					break;
-				case checkArgs('unsubscribe', ['uid'], req):
-					sC.subscriptions[req.uid] = false;
-					sock.write('ok\n');
-					break;
-				default:
-					sock.write('error\n');
-					break;
-			}
-		} catch(e) {
-			sock.write('error\n');
-		} 
-	});
-});
-
-function checkArgs(name, needed, given) {
-	if (name != given.request) return false;
-	for(i in needed) {
-		if(given[needed[i]] == undefined) {
-			return false;
+		if(subClients[i].connection == undefined && subClients[i].inactiveSince + 1000*60*10 < (new Date()).getTime()) {
+			delete subClients[i];
+			output('SubClient (' + i + ') was deleted [no sse connection made in >10min]', 'INFO');
+			continue;
 		}
 	}
-	return true;
+}, 7*60*1000)
+
+var server = restify.createServer({name: 'ts-notify-server'});
+server.use(restify.queryParser());
+server.use(restify.bodyParser());
+server.get('/init', function(req, res, next) {
+	var newId = generateId();
+	subClients[newId] = new SubClient(newId);
+	res.json(200, {'id': newId});
+	output('A new SubClient has signed up (' + newId + ')', 'INFO');
+});
+server.get('/getsubscriptions', function(req, res, next) {
+	var p = verifyParams(req.query, ["id"], res);
+	if(subClients[p.id] == undefined) {
+		res.send(400, 'Unknown Id');
+		return;
+	}
+	var result = [];
+	for(i in subClients[p.id].subsciptions) {
+		if (subClients[p.id].subsciptions[i]) result.push(i);
+	}
+	res.json(200, result);
+});
+server.post('/subscribe', function(req, res, next) {
+	var p = verifyParams(req.params, ["id", "userid"], res);
+	if(subClients[p.id] == undefined) {
+		res.send(400, 'Unknown Id');
+		return;
+	}
+	subClients[p.id].subscriptions[p.userid] = true;
+	res.send(200);
+});
+server.post('/unsubscribe', function(req, res, next) {
+	var p = verifyParams(req.params, ["id", "userid"], res);
+	if(subClients[p.id] == undefined) {
+		res.send(400, 'Unknown Id');
+		return;
+	}
+	if (subClients[p.id].subscriptions[p.userid])
+		subClients[p.id].subscriptions[p.userid] = false;
+	res.send(200);
+});
+server.get('/event', function(req, res) {
+	var p = verifyParams(req.query, ["id"], res);
+	if(subClients[p.id] == undefined) {
+		res.send(400, 'Unknown Id');
+		return;
+	}
+	subClients[p.id].inactiveSince = (new Date()).getTime();
+	subClients[p.id].connection = new SSEConnection(res);
+	subClients[p.id].connection.init();
+	subClients[p.id].connection.send('success');
+});
+
+server.listen(config.port, config.host, function() {
+	output(server.name + ' running on ' + server.url, 'INFO');
+});
+
+function SubClient(id) {
+	this.subscriptions = {};
+	this.connection;
+	this.id = id;
+	this.inactiveSince = (new Date()).getTime();
 }
 
-//status: 1=connect | 2=disconnect
+function SSEConnection(res) {
+	var connection = res;
+	var standing = true;
+	
+	connection.on('close', function() {
+		standing = false;
+	});
+	
+	this.closeConnection = function() {
+		if(standing) connection.end('closed');
+	}
+	this.init = function() {
+		connection.status(200);
+		connection.header('Content-Type','text/event-stream');
+		connection.header('Cache-Control', 'no-cache');
+		connection.header('Connection','keep-alive');
+	}
+	this.send = function(data) {
+		if (standing) connection.write('data: ' + JSON.stringify(data) + '\n\n');
+	}
+}
+
 function pushState(status, name, uid) {
 	var updateObj = {
 		'status': status,
 		'name': name
 	}
 	var update = JSON.stringify(updateObj);
-	for (i in connectedSockets) {
-		var sC = connectedSockets[i];
+	for (i in subClients) {
+		var sC = subClients[i];
 		if (sC.subscriptions[uid] == true) {
-			sC.socket.write(update + '\n');
+			sC.connection.send(updateObj);
 		}
 	}
 }
 
-function output(text) {
-	if (!config.output) return;
-	var _d = new Date();
-	console.log("[" + _d.getDate() + "." + (_d.getMonth()+1) + "." + _d.getFullYear() + " " + _d.getHours() + ":" + _d.getMinutes() + ":" + _d.getSeconds() + "] " + text);
-}
-
-function noop() {}
-
-function parseAnswer(notify) {
-	var split = notify.split(" ");
-	var name = split[0];
-	var args = {};
-	for (var i = 1; i < split.length; i++) {
-		var arg = split[i].split("=", 2);
-		if (arg.length < 2) arg[1] = "";
-		args[arg[0]] = tsunescape(arg[1]).replace('\n\r', '');
+function verifyParams(given, needed, res) {
+	for(i in needed) {
+		if(given[needed[i]] == undefined) {
+			res.send(new restify.MissingParameterError(needed[i]));
+			return;
+		}
 	}
-	return {'name': name, 'args': args};
+	return given;
 }
 
-function Client(name, uniqueid) {
+function generateId() {
+	var id = (new Date()).getTime();
+	while(subClients[id] != undefined) {
+		id = (new Date()).getTime();
+	}
+	return id;
+}
+
+function output(text, tag, force) {
+	if (!config.output && !force) return;
+	var _d = new Date();
+	console.log("[" + ('0' + _d.getDate()).slice(-2) + "." + ('0' + (_d.getMonth()+1)).slice(-2) + "." + _d.getFullYear() + " " + ('0' + _d.getHours()).slice(-2) + ":" + ('0' + _d.getMinutes()).slice(-2) + ":" + ('0' + _d.getSeconds()).slice(-2) + "]" + (tag != undefined ? "[" + tag + "] " : " ") + text);
+}
+
+function TsClient(name, uniqueid) {
 	this.name = name;
 	this.id = uniqueid;
-}
-
-function SocketClient(id, socket) {
-	this.socket = socket;
-	this.subscriptions = [];
-	this.id = id;
-}
-
-function tsunescape(s){
-	var r = s.replace(/\\s/g, " ");	// Whitespace
-	r = r.replace(/\\p/g, "|");		// Pipe
-	r = r.replace(/\\n/g, "\n");	// Newline
-	r = r.replace(/\\r/g, "\r");	// Carriage Return
-	r = r.replace(/\\t/g, "\t");	// Tabu
-	r = r.replace(/\\v/g, "\v");	// Vertical Tab
-	r = r.replace(/\\\//g, "\/");	// Slash
-	r = r.replace(/\\\\/g, "\\"); 	// Backslash
-	return r;
 }

@@ -1,0 +1,21 @@
+{
+  "name": "ts-notify-server",
+  "version": "0.0.2",
+  "description": "Let's clients get updated about their friends connection and disconnecting form a TeamSpeak server",
+  "main": "ts-notify-server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jangxx/ts-notify-server.git"
+  },
+  "dependencies": {
+    "node-teamspeak": "~0.1.3",
+    "restify": "~2.6.0"
+  },
+  "author": "jangxx",
+  "license": "MIT",
+  "readmeFilename": "README.md",
+  "gitHead": "3bca86084daa24d0fc5f672ffe19f7b7df2fafbb"
+}
