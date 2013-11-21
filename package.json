@@ -1,6 +1,6 @@
 {
   "name": "ts-notify-server",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Let's clients get updated about their friends connection and disconnecting form a TeamSpeak server",
   "main": "ts-notify-server.js",
   "scripts": {

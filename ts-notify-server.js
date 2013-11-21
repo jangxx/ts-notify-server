@@ -59,7 +59,7 @@ setInterval(function() {
 	cl.send('version');
 	for(i in subClients) {
 		if(subClients[i].inactiveSince + 1000*60*60*12 < (new Date()).getTime()) {
-			subClients[i].closeConnection();
+			subClients[i].connection.closeConnection();
 			delete subClients[i];
 			output('SubClient (' + i + ') was deleted [inactive for 12h]', 'INFO');
 			continue;
@@ -118,6 +118,7 @@ server.get('/event', function(req, res) {
 		res.send(400, 'Unknown Id');
 		return;
 	}
+	res.connection.setTimeout(0);
 	subClients[p.id].inactiveSince = (new Date()).getTime();
 	subClients[p.id].connection = new SSEConnection(res);
 	subClients[p.id].connection.init();
