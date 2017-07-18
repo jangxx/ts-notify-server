@@ -1,2 +1,3 @@
 node_modules
-ts-notify-server.json
+config.json
+apikeys.txt

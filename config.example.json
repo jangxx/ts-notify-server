@@ -1,0 +1,13 @@
+{
+	"port": 6000,
+	"reconnect_delay": 30000,
+	"keepalive_interval": 60000,
+	"max_subscriptions": 10,
+	"api_keys": "",
+	"ts": {
+		"name": "",
+		"password": "",
+		"host": "localhost",
+		"port": 10011
+	}
+}
