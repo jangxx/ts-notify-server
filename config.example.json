@@ -1,5 +1,6 @@
 {
 	"port": 6000,
+	"address": "",
 	"reconnect_delay": 30000,
 	"keepalive_interval": 60000,
 	"max_subscriptions": 10,

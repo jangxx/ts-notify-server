@@ -66,6 +66,14 @@ io.on('connection', function(socket) {
 		}
 	});
 
+	socket.on('subscribe by dbid', function(data) {
+		if(!Array.isArray(data)) return;
+
+		if(socket.subscriptions.length + data.length < configjson.max_subscriptions) {
+			socket.subscriptions = socket.subscriptions.concat(data);
+		}
+	});
+
 	socket.on('apiaccess', function(data) {
 		if (!socket.fullaccess_allowed) return;
 
@@ -89,19 +97,20 @@ io.on('connection', function(socket) {
 	});
 });
 
-server.listen(configjson.port);
-util.log("Server is listening on port " + configjson.port);
+server.listen(configjson.port, configjson.address, function() {
+	util.log("Server is listening on " + configjson.address + ":" + configjson.port);
+});
 
-function pushState(status, name, uid) {
+function pushState(status, name, uid, dbid) {
 	var sockets = io.sockets.connected;
 
-	for (s in sockets) {
+	for (let s in sockets) {
 		if(sockets[s].fullaccess_granted) {
 			sockets[s].emit("event", {status: status, name: name, uid: uid});
 			continue;
 		}
 
-		if(sockets[s].subscriptions.indexOf(uid) != -1) {
+		if(sockets[s].subscriptions.indexOf(uid) != -1 || sockets[s].subscriptions.indexOf(dbid) != -1) {
 			sockets[s].emit(status, name);
 		}
 	}
@@ -196,14 +205,14 @@ function connect(address, port, username, password, callback) {
 						uniqueId: evt.client_unique_identifier,
 						dbid: evt.client_database_id
 					};
-					pushState("connected", evt.client_nickname, evt.client_unique_identifier);
+					pushState("connected", evt.client_nickname, evt.client_unique_identifier, evt.client_database_id);
 				});
 
 				cl.on('clientleftview', function(evt) {
 					var cc = connectedClients[evt.clid];
 					if (!cc) return;
-					pushState("disconnected", cc.name, cc.uniqueId);
-					util.log('Client ' + cc.name + ' disconnected [' + cc.uniqueId + ']');
+					pushState("disconnected", cc.name, cc.uniqueId, cc.dbid);
+					util.log('Client ' + cc.name + ' disconnected [' + cc.uniqueId + '] [' + cc.dbid + ']');
 					delete connectedClients[evt.clid];
 				});
 
